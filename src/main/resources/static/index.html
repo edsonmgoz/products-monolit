@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Productos</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <div class="header-brand">
+        <span class="header-icon">&#9632;</span>
+        <span class="header-title">Productos</span>
+      </div>
+      <button class="btn btn-primary" id="btn-new">+ Nuevo producto</button>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="stats-bar" id="stats-bar">
+      <div class="stat-card">
+        <span class="stat-value" id="stat-total">—</span>
+        <span class="stat-label">Total</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value" id="stat-active">—</span>
+        <span class="stat-label">Activos</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value" id="stat-inactive">—</span>
+        <span class="stat-label">Inactivos</span>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-header">
+        <input class="search-input" id="search" type="text" placeholder="Buscar productos…" />
+      </div>
+      <div class="table-wrapper">
+        <table class="table" id="products-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Nombre</th>
+              <th>Descripción</th>
+              <th>Precio</th>
+              <th>Stock</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="products-body">
+            <tr>
+              <td colspan="7" class="empty-state">Cargando…</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal crear / editar -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal" id="modal">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modal-title">Nuevo producto</h2>
+        <button class="modal-close" id="modal-close">&times;</button>
+      </div>
+      <form class="modal-form" id="product-form" novalidate>
+        <input type="hidden" id="product-id" />
+
+        <div class="form-group">
+          <label class="form-label" for="field-name">Nombre <span class="required">*</span></label>
+          <input class="form-input" id="field-name" type="text" placeholder="Nombre del producto" maxlength="100" />
+          <span class="form-error" id="err-name"></span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="field-description">Descripción</label>
+          <textarea class="form-input form-textarea" id="field-description" placeholder="Descripción opcional" maxlength="500"></textarea>
+          <span class="form-error" id="err-description"></span>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="field-price">Precio <span class="required">*</span></label>
+            <input class="form-input" id="field-price" type="number" min="0" step="0.01" placeholder="0.00" />
+            <span class="form-error" id="err-price"></span>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="field-stock">Stock <span class="required">*</span></label>
+            <input class="form-input" id="field-stock" type="number" min="0" step="1" placeholder="0" />
+            <span class="form-error" id="err-stock"></span>
+          </div>
+        </div>
+
+        <div class="form-group form-group-toggle">
+          <label class="toggle-label">
+            <input type="checkbox" id="field-active" checked />
+            <span class="toggle-switch"></span>
+            <span class="toggle-text">Activo</span>
+          </label>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" id="btn-cancel">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-save">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Diálogo de confirmación de eliminación -->
+  <div class="modal-overlay" id="confirm-overlay">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h2 class="modal-title">Eliminar producto</h2>
+      </div>
+      <p class="confirm-message">¿Estás seguro de que deseas eliminar <strong id="confirm-name"></strong>? Esta acción no se puede deshacer.</p>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" id="btn-confirm-cancel">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="btn-confirm-delete">Eliminar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notificaciones -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
