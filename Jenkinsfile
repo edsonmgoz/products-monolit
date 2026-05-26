@@ -9,6 +9,7 @@ pipeline {
     }
     environment {
         MAVEN_OPTS = "-Dmaven.repo.local=${WORKSPACE}/.m2"
+        SONAR_USER_HOME = "${WORKSPACE}/.sonar"
     }
     stages {
         stage('Compile') {
@@ -39,6 +40,25 @@ pipeline {
         stage('Package') {
             steps {
                 sh 'mvn package -DskipTests -B -ntp'
+            }
+        }
+        stage('SonarQube') {
+            steps {
+                withSonarQubeEnv('sonarqube') {
+                    script {
+                        if (env.CHANGE_ID) {
+                            sh """
+                                mvn sonar:sonar -B -ntp \
+                                -Dsonar.pullrequest.key=${env.CHANGE_ID} \
+                                -Dsonar.pullrequest.branch=${env.CHANGE_BRANCH} \
+                                -Dsonar.pullrequest.base=${env.CHANGE_TARGET}
+                            """
+                        } else {
+                            def branch = GIT_BRANCH.replaceFirst('^origin/', '')
+                            sh "mvn sonar:sonar -B -ntp -Dsonar.branch.name=${branch}"
+                        }
+                    }
+                }
             }
         }
     }
