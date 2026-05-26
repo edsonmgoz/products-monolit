@@ -36,6 +36,11 @@ pipeline {
                 }
             }
         }
+        stage('Package') {
+            steps {
+                sh 'mvn package -DskipTests -B -ntp'
+            }
+        }
     }
     post {
         success {
