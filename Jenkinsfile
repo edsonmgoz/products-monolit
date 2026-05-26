@@ -54,7 +54,7 @@ pipeline {
                                 -Dsonar.pullrequest.base=${env.CHANGE_TARGET}
                             """
                         } else {
-                            def branch = GIT_BRANCH.replaceFirst('^origin/', '')
+                            def branchName = GIT_BRANCH.replaceFirst('^origin/', '')
                             println "Branch name: ${branchName}"
                             sh "mvn sonar:sonar -B -ntp -Dsonar.branch.name=${branchName} -Dsonar.branch.target=${branchName}"
                         }
