@@ -158,12 +158,17 @@ Umbrales mínimos configurados: **80% de líneas** y **60% de ramas**. El build 
 
 ## CI/CD
 
-El pipeline corre sobre un contenedor Maven (`maven:3.9-eclipse-temurin-25`), sin dependencias instaladas en el agente Jenkins. El repositorio local de Maven se almacena en `${WORKSPACE}/.m2` para aislarlo por ejecución.
+Pipeline declarativo en Jenkins. El agente es un contenedor Docker `maven:3.9-eclipse-temurin-25` — sin dependencias instaladas en el nodo Jenkins. El repositorio local Maven se almacena en `${WORKSPACE}/.m2` para aislarlo por ejecución.
 
-| Stage      | Comando                   | Resultado                              |
-|------------|---------------------------|----------------------------------------|
-| `Compile`  | `mvn clean compile`       | Verificación de compilación            |
-| `Test`     | `mvn test`                | Tests + reporte Surefire en Jenkins    |
-| `Coverage` | `mvn jacoco:report`       | Reporte JaCoCo registrado en Jenkins   |
+| Stage       | Herramienta         | Resultado                                                              |
+|-------------|---------------------|------------------------------------------------------------------------|
+| `Compile`   | Maven               | Falla rápido si el código no compila                                   |
+| `Test`      | JUnit 5 + Surefire  | Ejecuta 41 tests — reporte publicado en Jenkins                        |
+| `Coverage`  | JaCoCo              | Reporte XML + HTML — mínimo 80% líneas / 60% ramas                     |
+| `Package`   | Maven               | Genera el JAR ejecutable (`-DskipTests`)                               |
+| `SonarQube` | SonarQube Community | Análisis estático de calidad — soporta branches y pull requests        |
+| `Publish`   | JFrog Artifactory   | Publica en `products-monolit-snapshot` o `products-monolit-release` según versión del `pom.xml` |
+
+El pipeline se dispara automáticamente en cada push via `githubPush()`. El workspace se limpia al finalizar cada ejecución (`cleanWs()`).
 
 ---
