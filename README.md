@@ -4,6 +4,43 @@ Aplicación monolítica con Spring Boot 4 para la gestión de productos. Un úni
 
 ---
 
+## Infraestructura requerida
+
+Este proyecto ejecuta su pipeline en un **Jenkins pre-configurado** aprovisionado con Terraform + Ansible sobre AWS. El repositorio de infraestructura es público:
+
+**[https://github.com/edsonmgoz/terraform-aws-devops-tools](https://github.com/edsonmgoz/terraform-aws-devops-tools)**
+
+### Servicios habilitados por defecto
+
+| Servicio | Estado |
+|----------|--------|
+| Docker   | Habilitado por defecto |
+| Jenkins  | Habilitado por defecto |
+
+### Servicios que deben habilitarse para este pipeline
+
+El pipeline requiere **SonarQube** (stage `SonarQube`) y **JFrog Artifactory** (stage `Publish`). Ambos están disponibles en el repositorio de infraestructura pero **comentados por defecto**. Debes activarlos antes de ejecutar `terraform apply`.
+
+**SonarQube Community** — descomenta en `resources.tf`:
+```hcl
+"mkdir -p /home/ubuntu/ansible/sonarqube-community/conf",
+"mv /home/ubuntu/docker-compose.sonarqube-community.yml /home/ubuntu/ansible/sonarqube-community/docker-compose.sonarqube-community.yml",
+"mv /home/ubuntu/sonar.properties /home/ubuntu/ansible/sonarqube-community/conf/sonar.properties",
+"mv /home/ubuntu/site-sonarqube-community.yml /home/ubuntu/ansible/sonarqube-community/site-sonarqube-community.yml",
+"ansible-playbook /home/ubuntu/ansible/sonarqube-community/site-sonarqube-community.yml",
+```
+
+**JFrog Artifactory OSS** — descomenta en `resources.tf`:
+```hcl
+"mkdir -p /home/ubuntu/ansible/jfrog-artifactory",
+"mv /home/ubuntu/site-artifactory-oss.yml /home/ubuntu/ansible/jfrog-artifactory/site-artifactory-oss.yml",
+"ansible-playbook /home/ubuntu/ansible/jfrog-artifactory/site-artifactory-oss.yml",
+```
+
+> Activa ambos servicios en una sola edición antes de aplicar. Cada `terraform apply` re-aprovisiona la instancia desde cero.
+
+---
+
 ## Stack tecnológico
 
 | Capa          | Tecnología                        |
