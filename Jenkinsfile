@@ -69,20 +69,14 @@ pipeline {
 
                     def pom = readMavenPom file: 'pom.xml'
                     def groupIdPath = pom.groupId.replaceAll("\\.", "/")
-                    def artifactPath = "${groupIdPath}/${pom.artifactId}/${pom.version}/"
+                    def repo = pom.version.endsWith('SNAPSHOT') ? 'products-monolit-snapshot' : 'products-monolit-release'
 
                     def uploadSpec = """
                         {
                             "files": [
                                 {
                                     "pattern": "target/.*.jar",
-                                    "target": "products-monolit-snapshot/${artifactPath}",
-                                    "regexp": "true",
-                                    "props": "build.url=${RUN_DISPLAY_URL};build.user=${USER}"
-                                },
-                                {
-                                    "pattern": "target/.*.jar",
-                                    "target": "products-monolit-release/${artifactPath}",
+                                    "target": "${repo}/${groupIdPath}/${pom.artifactId}/${pom.version}/",
                                     "regexp": "true",
                                     "props": "build.url=${RUN_DISPLAY_URL};build.user=${USER}"
                                 }
