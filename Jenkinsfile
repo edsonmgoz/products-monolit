@@ -8,8 +8,9 @@ pipeline {
         githubPush()
     }
     environment {
-        MAVEN_OPTS = "-Dmaven.repo.local=${WORKSPACE}/.m2"
+        MAVEN_OPTS      = "-Dmaven.repo.local=${WORKSPACE}/.m2"
         SONAR_USER_HOME = "${WORKSPACE}/.sonar"
+        MAVEN_HOME      = '/usr/share/maven'
     }
     stages {
         stage('Compile') {
@@ -37,11 +38,6 @@ pipeline {
                 }
             }
         }
-        stage('Package') {
-            steps {
-                sh 'mvn package -DskipTests -B -ntp'
-            }
-        }
         stage('SonarQube') {
             steps {
                 withSonarQubeEnv('sonarqube') {
@@ -59,6 +55,25 @@ pipeline {
                             sh "mvn sonar:sonar -B -ntp -Dsonar.branch.name=${branchName} -Dsonar.branch.target=${branchName}"
                         }
                     }
+                }
+            }
+        }
+        stage('Publish') {
+            steps {
+                script {
+                    def server = Artifactory.server 'artifactory'
+
+                    def rtMaven = Artifactory.newMavenBuild()
+                    rtMaven.deployer server: server,
+                                     releaseRepo: 'products-monolit-release',
+                                     snapshotRepo: 'products-monolit-snapshot'
+
+                    rtMaven.deployer
+                        .addProperty('build.url', env.RUN_DISPLAY_URL)
+                        .addProperty('build.user', env.USER)
+
+                    def buildInfo = rtMaven.run pom: 'pom.xml', goals: 'clean install -B -ntp -DskipTests'
+                    server.publishBuildInfo buildInfo
                 }
             }
         }
