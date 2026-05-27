@@ -37,6 +37,11 @@ pipeline {
                 }
             }
         }
+        stage('Package') {
+            steps {
+                sh 'mvn package -DskipTests -B -ntp'
+            }
+        }
         stage('SonarQube') {
             steps {
                 withSonarQubeEnv('sonarqube') {
@@ -57,11 +62,6 @@ pipeline {
                 }
             }
         }
-        stage('Package') {
-            steps {
-                sh 'mvn package -DskipTests -B -ntp'
-            }
-        }
         stage('Publish') {
             steps {
                 script {
@@ -69,14 +69,20 @@ pipeline {
 
                     def pom = readMavenPom file: 'pom.xml'
                     def groupIdPath = pom.groupId.replaceAll("\\.", "/")
-                    def repo = pom.version.endsWith('SNAPSHOT') ? 'products-monolit-snapshot' : 'products-monolit-release'
+                    def artifactPath = "${groupIdPath}/${pom.artifactId}/${pom.version}/"
 
                     def uploadSpec = """
                         {
                             "files": [
                                 {
                                     "pattern": "target/.*.jar",
-                                    "target": "${repo}/${groupIdPath}/${pom.artifactId}/${pom.version}/",
+                                    "target": "products-monolit-snapshot/${artifactPath}",
+                                    "regexp": "true",
+                                    "props": "build.url=${RUN_DISPLAY_URL};build.user=${USER}"
+                                },
+                                {
+                                    "pattern": "target/.*.jar",
+                                    "target": "products-monolit-release/${artifactPath}",
                                     "regexp": "true",
                                     "props": "build.url=${RUN_DISPLAY_URL};build.user=${USER}"
                                 }
