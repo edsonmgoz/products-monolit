@@ -49,6 +49,7 @@ pipeline {
                     post {
                         success {
                             archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+                            stash name: 'application-jar', includes: 'target/*.jar'
                         }
                     }
                 }
@@ -105,6 +106,7 @@ pipeline {
         stage('Docker Build') {
             agent any
             steps {
+                unstash 'application-jar'
                 sh "docker build -t ${DOCKER_IMAGE}:${IMAGE_TAG} -t ${DOCKER_IMAGE}:latest ."
             }
         }
