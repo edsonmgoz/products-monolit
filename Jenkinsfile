@@ -1,98 +1,129 @@
 pipeline {
-    agent {
-        docker {
-            image 'maven:3.9-eclipse-temurin-25'
-        }
-    }
+    agent none
     triggers {
         githubPush()
     }
     environment {
-        MAVEN_OPTS      = "-Dmaven.repo.local=${WORKSPACE}/.m2"
-        SONAR_USER_HOME = "${WORKSPACE}/.sonar"
+        DOCKER_IMAGE = 'edsonmgoz/products-monolit'
+        IMAGE_TAG    = "${BUILD_NUMBER}"
     }
     stages {
-        stage('Compile') {
-            steps {
-                sh 'mvn clean compile -B -ntp'
+        stage('CI') {
+            agent {
+                docker { image 'maven:3.9-eclipse-temurin-25' }
             }
-        }
-        stage('Test') {
-            steps {
-                sh 'mvn test -B -ntp'
+            environment {
+                MAVEN_OPTS      = "-Dmaven.repo.local=${WORKSPACE}/.m2"
+                SONAR_USER_HOME = "${WORKSPACE}/.sonar"
             }
-            post {
-                success {
-                    junit 'target/surefire-reports/*.xml'
+            stages {
+                stage('Compile') {
+                    steps {
+                        sh 'mvn clean compile -B -ntp'
+                    }
                 }
-            }
-        }
-        stage('Coverage') {
-            steps {
-                sh 'mvn jacoco:report -B -ntp'
-            }
-            post {
-                success {
-                    recordCoverage(tools: [[parser: 'JACOCO']])
+                stage('Test') {
+                    steps {
+                        sh 'mvn test -B -ntp'
+                    }
+                    post {
+                        success {
+                            junit 'target/surefire-reports/*.xml'
+                        }
+                    }
                 }
-            }
-        }
-        stage('Package') {
-            steps {
-                sh 'mvn package -DskipTests -B -ntp'
-            }
-        }
-        stage('SonarQube') {
-            steps {
-                withSonarQubeEnv('sonarqube') {
-                    script {
-                        if (env.CHANGE_ID) {
-                            sh """
-                                mvn sonar:sonar -B -ntp \
-                                -Dsonar.pullrequest.key=${env.CHANGE_ID} \
-                                -Dsonar.pullrequest.branch=${env.CHANGE_BRANCH} \
-                                -Dsonar.pullrequest.base=${env.CHANGE_TARGET}
+                stage('Coverage') {
+                    steps {
+                        sh 'mvn jacoco:report -B -ntp'
+                    }
+                    post {
+                        success {
+                            recordCoverage(tools: [[parser: 'JACOCO']])
+                        }
+                    }
+                }
+                stage('Package') {
+                    steps {
+                        sh 'mvn package -DskipTests -B -ntp'
+                    }
+                    post {
+                        success {
+                            archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+                        }
+                    }
+                }
+                stage('SonarQube') {
+                    steps {
+                        withSonarQubeEnv('sonarqube') {
+                            script {
+                                if (env.CHANGE_ID) {
+                                    sh """
+                                        mvn sonar:sonar -B -ntp \
+                                        -Dsonar.pullrequest.key=${env.CHANGE_ID} \
+                                        -Dsonar.pullrequest.branch=${env.CHANGE_BRANCH} \
+                                        -Dsonar.pullrequest.base=${env.CHANGE_TARGET}
+                                    """
+                                } else {
+                                    def branchName = GIT_BRANCH.replaceFirst('^origin/', '')
+                                    sh "mvn sonar:sonar -B -ntp -Dsonar.branch.name=${branchName} -Dsonar.branch.target=${branchName}"
+                                }
+                            }
+                        }
+                    }
+                }
+                stage('Publish') {
+                    steps {
+                        script {
+                            def server = Artifactory.server 'artifactory'
+                            def pom = readMavenPom file: 'pom.xml'
+                            def groupIdPath = pom.groupId.replaceAll("\\.", "/")
+                            def repo = pom.version.endsWith('SNAPSHOT') ? 'products-monolit-snapshot' : 'products-monolit-release'
+                            def uploadSpec = """
+                                {
+                                    "files": [
+                                        {
+                                            "pattern": "target/.*.jar",
+                                            "target": "${repo}/${groupIdPath}/${pom.artifactId}/${pom.version}/",
+                                            "regexp": "true",
+                                            "props": "build.url=${RUN_DISPLAY_URL};build.user=${USER}"
+                                        }
+                                    ]
+                                }
                             """
-                        } else {
-                            def branchName = GIT_BRANCH.replaceFirst('^origin/', '')
-                            println "Branch name: ${branchName}"
-                            sh "mvn sonar:sonar -B -ntp -Dsonar.branch.name=${branchName} -Dsonar.branch.target=${branchName}"
+                            def buildInfo = server.upload spec: uploadSpec
+                            server.publishBuildInfo buildInfo
                         }
                     }
                 }
             }
         }
-        stage('Publish') {
+        stage('Docker Build') {
+            agent any
             steps {
-                script {
-                    def server = Artifactory.server 'artifactory'
-
-                    def pom = readMavenPom file: 'pom.xml'
-                    def groupIdPath = pom.groupId.replaceAll("\\.", "/")
-                    def repo = pom.version.endsWith('SNAPSHOT') ? 'products-monolit-snapshot' : 'products-monolit-release'
-
-                    def uploadSpec = """
-                        {
-                            "files": [
-                                {
-                                    "pattern": "target/.*.jar",
-                                    "target": "${repo}/${groupIdPath}/${pom.artifactId}/${pom.version}/",
-                                    "regexp": "true",
-                                    "props": "build.url=${RUN_DISPLAY_URL};build.user=${USER}"
-                                }
-                            ]
-                        }
+                sh "docker build -t ${DOCKER_IMAGE}:${IMAGE_TAG} -t ${DOCKER_IMAGE}:latest ."
+            }
+        }
+        stage('Docker Push') {
+            agent any
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh """
+                        echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
+                        docker push ${DOCKER_IMAGE}:${IMAGE_TAG}
+                        docker push ${DOCKER_IMAGE}:latest
+                        docker logout
                     """
-                    def buildInfo = server.upload spec: uploadSpec
-                    server.publishBuildInfo buildInfo
                 }
+            }
+        }
+        stage('Deploy') {
+            agent any
+            steps {
+                sh "TAG=${IMAGE_TAG} docker compose up -d --pull always --remove-orphans"
             }
         }
     }
     post {
-        success {
-            archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
-        }
         cleanup {
             cleanWs()
         }

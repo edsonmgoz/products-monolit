@@ -1,0 +1,12 @@
+.git
+.gitignore
+.idea
+src/
+.mvn/
+mvnw
+mvnw.cmd
+CLAUDE.md
+HELP.md
+README.md
+target/
+!target/*.jar

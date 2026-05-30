@@ -1,0 +1,13 @@
+services:
+  products:
+    image: edsonmgoz/products-monolit:${TAG:-latest}
+    container_name: products-app
+    ports:
+      - "8086:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/api/products"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
