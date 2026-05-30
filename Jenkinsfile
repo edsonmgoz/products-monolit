@@ -5,7 +5,6 @@ pipeline {
     }
     environment {
         DOCKER_IMAGE = 'edsonmgoz/products-monolit'
-        IMAGE_TAG    = "${BUILD_NUMBER}"
     }
     stages {
         stage('CI') {
@@ -19,6 +18,10 @@ pipeline {
             stages {
                 stage('Compile') {
                     steps {
+                        script {
+                            def pom = readMavenPom file: 'pom.xml'
+                            env.IMAGE_TAG = pom.version
+                        }
                         sh 'mvn clean compile -B -ntp'
                     }
                 }
