@@ -96,6 +96,11 @@ pipeline {
                     }
                 }
             }
+            post {
+                always {
+                    cleanWs()
+                }
+            }
         }
         stage('Docker Build') {
             agent any
@@ -121,11 +126,6 @@ pipeline {
             steps {
                 sh "TAG=${IMAGE_TAG} docker compose up -d --pull always --remove-orphans"
             }
-        }
-    }
-    post {
-        cleanup {
-            cleanWs()
         }
     }
 }
