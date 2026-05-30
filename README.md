@@ -4,6 +4,21 @@ Aplicación monolítica con Spring Boot 4 para la gestión de productos. Un úni
 
 ---
 
+> **Rama `docker-deploy`**
+>
+> Esta rama extiende el pipeline de CI/CD de `master` agregando tres stages de despliegue con Docker:
+>
+> | Stage adicional | Descripción |
+> |---|---|
+> | `Docker Build` | Construye la imagen Docker a partir del `Dockerfile` multi-stage |
+> | `Docker Push` | Publica la imagen en Docker Hub con tag `{versión}` y `latest` |
+> | `Deploy` | Levanta la aplicación en el servidor con `docker compose up` |
+>
+> Los nuevos archivos de soporte son `Dockerfile`, `compose.yaml` y `.dockerignore`.
+> [Ver detalle completo →](#docker-deploy)
+
+---
+
 ## Infraestructura requerida
 
 Este proyecto ejecuta su pipeline en un **Jenkins pre-configurado** aprovisionado con Terraform + Ansible sobre AWS. El repositorio de infraestructura es público:
@@ -207,5 +222,71 @@ Pipeline declarativo en Jenkins. El agente es un contenedor Docker `maven:3.9-ec
 | `Publish`   | JFrog Artifactory   | Publica en `products-monolit-snapshot` o `products-monolit-release` según versión del `pom.xml` |
 
 El pipeline se dispara automáticamente en cada push via `githubPush()`. El workspace se limpia al finalizar cada ejecución (`cleanWs()`).
+
+---
+
+<a id="docker-deploy"></a>
+
+## Despliegue con Docker — rama `docker-deploy`
+
+### Pipeline completo
+
+El Jenkinsfile de esta rama usa `agent none` con dos bloques de agentes diferenciados:
+
+- **Stage `CI` (nested):** agente `maven:3.9-eclipse-temurin-25`. Contiene todos los stages del pipeline base (Compile → Test → Coverage → Package → SonarQube → Publish). Al finalizar, el JAR se guarda vía `stash` para que el siguiente bloque pueda acceder a él.
+- **Stages Docker:** agente `any` (nodo Jenkins con acceso al Docker daemon del host). Consumen el JAR via `unstash` y ejecutan el ciclo build → push → deploy.
+
+| Stage        | Descripción |
+|---|---|
+| `Docker Build` | `docker build` usando el JAR del `stash` + el `Dockerfile` multi-stage |
+| `Docker Push`  | Login en Docker Hub con credencial Jenkins, push de tag versionado y `latest` |
+| `Deploy`       | `docker compose up -d` con la imagen recién publicada |
+
+El tag de la imagen se toma de la versión declarada en `pom.xml` (ej. `0.0.4`), no del número de build de Jenkins. Esto mantiene consistencia con el artefacto publicado en Artifactory.
+
+---
+
+### Dockerfile
+
+Imagen base: `eclipse-temurin:25-jre`. Construcción en dos etapas:
+
+1. **Builder:** extrae las capas del JAR con `-Djarmode=tools` (Spring Boot 4.x) para aprovechar el cache de capas de Docker.
+2. **Runtime:** imagen limpia con usuario no-root (`appuser`) para mayor seguridad. Copia solo las capas extraídas.
+
+```
+edsonmgoz/products-monolit:{versión}
+edsonmgoz/products-monolit:latest
+```
+
+La aplicación queda expuesta en el puerto `8080` del contenedor.
+
+---
+
+### compose.yaml
+
+```yaml
+services:
+  products:
+    image: edsonmgoz/products-monolit:${TAG:-latest}
+    ports:
+      - "8086:8080"        # puerto del host → puerto del contenedor
+    healthcheck:
+      test: curl -sf http://localhost:8080/api/products
+      interval: 30s
+      retries: 3
+    restart: unless-stopped
+```
+
+El `TAG` se inyecta desde el pipeline (`TAG=${IMAGE_TAG} docker compose up`). Si se ejecuta manualmente sin definir `TAG`, usa `latest` por defecto.
+
+---
+
+### Credenciales requeridas en Jenkins
+
+| ID en Jenkins           | Tipo                   | Uso |
+|---|---|---|
+| `dockerhub-credentials` | Username with password | Login en Docker Hub. El password debe ser un **Access Token** de Docker Hub (no la contraseña de la cuenta). |
+
+Para crear el Access Token: Docker Hub → Account Settings → Personal access tokens → Generate new token.
 
 ---
